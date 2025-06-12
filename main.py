@@ -1,14 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from enum import IntEnum
+from fastapi import FastAPI, HTTPException, Depends
+
+from database import  Todo, Session, Priority, SessionLocal, select
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 app = FastAPI()
 
-class Priority(IntEnum):
-    LOW = 3,
-    MEDIUM = 2,
-    HIGH = 1
+
 
 
 class TodoBase(BaseModel):
@@ -16,62 +14,80 @@ class TodoBase(BaseModel):
     desc: str = Field(..., description="Task Desc")
     priority: Priority = Field(default=Priority.LOW, )
     
-class Todo(TodoBase):
+class TodoRead(TodoBase):
      id: int = Field(..., description="Unique identifier, will be auto created")
+     class Config:
+         orm_mode = True
 
 class CreateTodo(TodoBase):
      pass
 
-class UpdateTodo(TodoBase):
-    name: Optional[str] = Field(..., description="new task name")
-    desc: Optional[str] = Field(..., description="udpated desc")
-    priority: Optional[int] = Field(..., description="updated priority")
+# class UpdateTodo(TodoBase):
+#     name: Optional[str] = Field(..., description="new task name")
+#     desc: Optional[str] = Field(..., description="udpated desc")
+#     priority: Optional[int] = Field(..., description="updated priority")
 
 
-all_todos=[
-     
-     Todo(id=1, name="sports", desc="running", priority=2),
-     Todo(id=2, name="watch",desc="tutorial", priority=3)
+
+
     
-]
 
 @app.get("/")
 def index():
     return "Hello World"
 
-@app.get("/todos", response_model=List[Todo])
-def getTodos(first_n: int = None):
-    if first_n != None:
-        return all_todos[:first_n]
-    else:
-        return all_todos
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-@app.post("/createtodo", response_model=Todo)
-def createTodo(newTodo: CreateTodo):
-    id = len(all_todos)+1
+@app.get("/todos")
+
+def getTodos(first_n: int = None, db: Session = Depends(get_db)):
+    if first_n != None:
+        stmt = select(Todo).order_by(Todo.id).limit(first_n)
+        todoList = db.scalars(stmt).all()
+        return todoList
+
+    else:
+        stmt = select(Todo)
+        todoList = db.scalars(stmt).all()
+        return todoList
+
+
+@app.post("/createtodo")
+def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db)):
+    stmt = select(Todo).order_by(Todo.id)
+    todoList = db.scalars(stmt).all()
+    id = len(todoList)+1
     theTodo=Todo(
         id=id,
         name=newTodo.name,
         desc=newTodo.desc,
         priority=newTodo.priority
     )
-    all_todos.append(theTodo)
-    return theTodo
+    db.add(theTodo)
+    db.commit()
+    db.refresh(theTodo) 
+    todoList = db.scalars(stmt).all()
+    return todoList
 
-@app.put("/updatetodo/{todo_id}", response_model=Todo)
-def updateTodo(todo_id: int,updatedTodo: UpdateTodo):
-    for todo in all_todos:
-        if todo.id == todo_id:
-            todo.name=updatedTodo.name
-            todo.desc=updatedTodo.desc
-            todo.priority=updatedTodo.priority
-            return todo
-    raise HTTPException(status_code=404, detail="todo item not found")
+# @app.put("/updatetodo/{todo_id}", response_model=Todo)
+# def updateTodo(todo_id: int,updatedTodo: UpdateTodo):
+#     for todo in all_todos:
+#         if todo.id == todo_id:
+#             todo.name=updatedTodo.name
+#             todo.desc=updatedTodo.desc
+#             todo.priority=updatedTodo.priority
+#             return todo
+#     raise HTTPException(status_code=404, detail="todo item not found")
 
-@app.delete("/deleteto/{todo_id}", response_model=Todo)
-def deleteTodo(todo_id: int):
-    for index,todo in enumerate(all_todos):
-        if todo.id == todo_id:
-            all_todos.pop(index)
-            return todo
-    raise HTTPException(status_code=404, detail="not found")
+# @app.delete("/deleteto/{todo_id}", response_model=Todo)
+# def deleteTodo(todo_id: int):
+#     for index,todo in enumerate(all_todos):
+#         if todo.id == todo_id:
+#             all_todos.pop(index)
+#             return todo
+#     raise HTTPException(status_code=404, detail="not found")
