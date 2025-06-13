@@ -5,7 +5,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped, sessionmaker
 from sqlalchemy.orm import mapped_column
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, update, delete
 
 from enum import IntEnum
 

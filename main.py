@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 
-from database import  Todo, Session, Priority, SessionLocal, select
+from database import  Todo, Session, Priority, SessionLocal, update,delete, select
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -22,10 +22,10 @@ class TodoRead(TodoBase):
 class CreateTodo(TodoBase):
      pass
 
-# class UpdateTodo(TodoBase):
-#     name: Optional[str] = Field(..., description="new task name")
-#     desc: Optional[str] = Field(..., description="udpated desc")
-#     priority: Optional[int] = Field(..., description="updated priority")
+class UpdateTodo(TodoBase):
+    name: Optional[str] = Field(description="new task name")
+    desc: Optional[str] = Field( description="udpated desc")
+    priority: Optional[int] = Field(description="updated priority")
 
 
 
@@ -74,20 +74,30 @@ def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db)):
     todoList = db.scalars(stmt).all()
     return todoList
 
-# @app.put("/updatetodo/{todo_id}", response_model=Todo)
-# def updateTodo(todo_id: int,updatedTodo: UpdateTodo):
-#     for todo in all_todos:
-#         if todo.id == todo_id:
-#             todo.name=updatedTodo.name
-#             todo.desc=updatedTodo.desc
-#             todo.priority=updatedTodo.priority
-#             return todo
-#     raise HTTPException(status_code=404, detail="todo item not found")
+@app.put("/updatetodo/{todo_id}")
+def updateTodo(todo_id: int,updatedTodo: UpdateTodo, db: Session = Depends(get_db)):
+    try:
+        if updatedTodo.name!=None:
+            stmt = (update(Todo).where(Todo.id == todo_id).values(name=updatedTodo.name))
+            db.execute(stmt)
+            db.commit()
+        elif updatedTodo.desc != None: 
+            stmt = (update(Todo).where(Todo.id == todo_id).values(desc=updatedTodo.name))
+            db.execute(stmt)
+            db.commit()
+        elif updatedTodo.priority != None: 
+            stmt = (update(Todo).where(Todo.id == todo_id).values(priority=updatedTodo.name))
+            db.execute(stmt)
+            db.commit()
+        return updatedTodo
+    except:
+        raise HTTPException(status_code=404, detail="todo item not found")
 
-# @app.delete("/deleteto/{todo_id}", response_model=Todo)
-# def deleteTodo(todo_id: int):
-#     for index,todo in enumerate(all_todos):
-#         if todo.id == todo_id:
-#             all_todos.pop(index)
-#             return todo
-#     raise HTTPException(status_code=404, detail="not found")
+@app.delete("/deltodo/{todo_id}")
+def deleteTodo(todo_id: int, db: Session = Depends(get_db)):
+    item=db.scalar(select(Todo).where(Todo.id ==todo_id))
+    print(item)
+    stmt = (delete(Todo).where(Todo.id == todo_id))
+    db.execute(stmt)
+    db.commit()
+    return item
