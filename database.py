@@ -26,6 +26,7 @@ class Todo(Base):
     name: Mapped[str]
     desc: Mapped[str]
     priority: Mapped[Priority]
+    completed: Mapped[bool]
     def __repr__(self) -> str:
         return f"Todo(id={self.id!r}, name={self.name!r}, desc={self.desc!r}), priority={self.priority!r}"
 

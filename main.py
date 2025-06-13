@@ -1,11 +1,24 @@
 from fastapi import FastAPI, HTTPException, Depends
-
+from fastapi.middleware.cors import CORSMiddleware
 from database import  Todo, Session, Priority, SessionLocal, update,delete, select
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 app = FastAPI()
 
+origins = [
+    "http://localhost:5173",  # Vite
+    "http://localhost:3000",  # Create React App
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+        allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 
@@ -23,9 +36,10 @@ class CreateTodo(TodoBase):
      pass
 
 class UpdateTodo(TodoBase):
-    name: Optional[str] = Field(description="new task name")
-    desc: Optional[str] = Field( description="udpated desc")
-    priority: Optional[int] = Field(description="updated priority")
+    name: Optional[str] = Field(None, description="new task name")
+    desc: Optional[str] = Field(None, description="udpated desc")
+    priority: Optional[int] = Field(None, description="updated priority")
+    completed: Optional[bool]
 
 
 
@@ -66,7 +80,8 @@ def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db)):
         id=id,
         name=newTodo.name,
         desc=newTodo.desc,
-        priority=newTodo.priority
+        priority=newTodo.priority,
+        completed=False
     )
     db.add(theTodo)
     db.commit()
@@ -89,15 +104,22 @@ def updateTodo(todo_id: int,updatedTodo: UpdateTodo, db: Session = Depends(get_d
             stmt = (update(Todo).where(Todo.id == todo_id).values(priority=updatedTodo.name))
             db.execute(stmt)
             db.commit()
+        elif updatedTodo.completed != None: 
+            stmt = (update(Todo).where(Todo.id == todo_id).values(completed=updatedTodo.completed))
+            db.execute(stmt)
+            db.commit()
         return updatedTodo
     except:
         raise HTTPException(status_code=404, detail="todo item not found")
 
 @app.delete("/deltodo/{todo_id}")
 def deleteTodo(todo_id: int, db: Session = Depends(get_db)):
-    item=db.scalar(select(Todo).where(Todo.id ==todo_id))
-    print(item)
-    stmt = (delete(Todo).where(Todo.id == todo_id))
-    db.execute(stmt)
-    db.commit()
-    return item
+    try:
+        item=db.scalar(select(Todo).where(Todo.id ==todo_id))
+        print(item)
+        stmt = (delete(Todo).where(Todo.id == todo_id))
+        db.execute(stmt)
+        db.commit()
+        return item
+    except:
+        raise HTTPException(status_code=404, detail="todo item not found")
