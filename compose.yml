@@ -1,0 +1,47 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:latest # Using a specific version for stability
+    container_name: my_postgres_db
+    environment:
+      POSTGRES_DB: postgres # Replace with your desired database name
+      POSTGRES_USER: postgres # Replace with your desired database user
+      POSTGRES_PASSWORD: postgres # Replace with a strong password
+    volumes:
+      # Persist database data to a named volume to prevent data loss
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Expose PostgreSQL port (optional, good for direct access/debugging)
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"] # Health check for DB readiness
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Python Backend Service
+  backend:
+    build: . # Build the image from the Dockerfile in the current directory
+    container_name: my_python_backend
+    ports:
+      # Expose the port your Flask/Django/FastAPI app listens on (e.g., 5000 for Flask)
+      - 8000:8000
+    environment:
+      # Environment variables for database connection (replace with your values)
+      # Example: For a full SQLAlchemy connection string
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      # Ensure the database service is healthy before starting the backend
+      db:
+        condition: service_healthy
+    # Optional: Mount your local application code into the container for development
+    # - "./backend:/app"
+    command: fastapi run main.py # Command to run your Python application
+
+volumes:
+  # Define the named volume for PostgreSQL data persistence
+  postgres_data:
+
