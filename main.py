@@ -11,6 +11,7 @@ from models import Todo, Priority, User
 from auth import hash_password
 from fastapi.security import OAuth2PasswordRequestForm
 from thetoken import create_token
+from fastapi import Request
 
 app = FastAPI()
 
@@ -84,7 +85,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @app.post("/todos")
 
 def getTodos(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    stmt = (Todo).where(Todo.owner_id == current_user.id)
+    stmt = select(Todo).where(current_user.id==Todo.user_id)
     todoList = db.scalars(stmt).all()
     return todoList
 
@@ -92,12 +93,14 @@ def getTodos(current_user: User = Depends(get_current_user), db: Session = Depen
 
 
 @app.post("/createtodo")
-def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db)):
-    stmt = select(Todo).order_by(Todo.id)
-    todoList = db.scalars(stmt).all()
-    id = len(todoList)+1
+def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db), user = Depends(get_current_user)):
+    stmt = select(Todo).where(user.id==Todo.user_id)
+    stmtIds = select(Todo.id)
+
+    todoIdList = db.scalars(stmtIds).all()
+    id = max(todoIdList)+1
     theTodo=Todo(
-        id=id,
+        user_id=user.id,
         name=newTodo.name,
         desc=newTodo.desc,
         priority=newTodo.priority,
@@ -105,7 +108,8 @@ def createTodo(newTodo: CreateTodo, db: Session = Depends(get_db)):
     )
     db.add(theTodo)
     db.commit()
-    db.refresh(theTodo) 
+    db.refresh(theTodo)
+
     todoList = db.scalars(stmt).all()
     return todoList
 
@@ -168,5 +172,5 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid username or password")
     token = create_token(data={"sub":user.email})
-    return ({"access token": token, "token_type": "bearer"})
+    return ({"access_token": token, "token_type": "bearer"})
 
